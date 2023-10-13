@@ -165,8 +165,8 @@ fi
 info "Starting $*..."
 fi
 
-if [ "${VERBOSE:-0}" == '0' ]; then
-  exec "$@" -q
+if [ "${VERBOSE:-0}" == '0' ] && [ -z ${1##*pgbouncer*} ]; then
+  exec "$@" --quiet
 fi
 
 exec "$@"
