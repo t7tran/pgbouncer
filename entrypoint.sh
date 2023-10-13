@@ -157,4 +157,8 @@ cat ${PG_CONFIG_DIR}/pgbouncer.ini
 echo "Starting $*..."
 fi
 
+if [ "${VERBOSE:-0}" == '0' ]; then
+  exec "$@" -q
+fi
+
 exec "$@"
