@@ -3,6 +3,12 @@
 
 set -e
 
+info() {
+  if [ "${VERBOSE:-0}" != '0' ]; then
+    echo "$@"
+  fi
+}
+
 # Here are some parameters. See all on
 # https://pgbouncer.github.io/config.html
 
@@ -54,11 +60,11 @@ if [ -n "$DB_USER" -a -n "$DB_PASSWORD" -a -e "${_AUTH_FILE}" ] && ! grep -q "^\
      pass="md5$(echo -n "$DB_PASSWORD$DB_USER" | md5sum | cut -f 1 -d ' ')"
   fi
   echo "\"$DB_USER\" \"$pass\"" >> ${PG_CONFIG_DIR}/userlist.txt
-  echo "Wrote authentication credentials to ${PG_CONFIG_DIR}/userlist.txt"
+  info "Wrote authentication credentials to ${PG_CONFIG_DIR}/userlist.txt"
 fi
 
 if [ ! -f ${PG_CONFIG_DIR}/pgbouncer.ini ]; then
-  echo "Create pgbouncer config in ${PG_CONFIG_DIR}"
+  info "Create pgbouncer config in ${PG_CONFIG_DIR}"
 
 # Config file is in “ini” format. Section names are between “[” and “]”.
 # Lines starting with “;” or “#” are taken as comments and ignored.
@@ -67,14 +73,14 @@ if [ ! -f ${PG_CONFIG_DIR}/pgbouncer.ini ]; then
 ################## Auto generated ##################
 [databases]
 ${DB_NAME:-*} = host=${DB_HOST:?"Setup pgbouncer config error! You must set DB_HOST env"} \
-port=${DB_PORT:-5432} user=${DB_USER:-postgres}
-${CLIENT_ENCODING:+client_encoding = ${CLIENT_ENCODING}\n}\
+port=${DB_PORT:-5432} user=${DB_USER:-postgres} \
+${CLIENT_ENCODING:+client_encoding=${CLIENT_ENCODING}\n}\
 
 [pgbouncer]
 listen_addr = ${LISTEN_ADDR:-0.0.0.0}
 listen_port = ${LISTEN_PORT:-5432}
 unix_socket_dir = ${UNIX_SOCKET_DIR}
-user = postgres
+${RUN_AS_USER:+user = ${RUN_AS_USER}\n}\
 auth_file = ${AUTH_FILE:-$PG_CONFIG_DIR/userlist.txt}
 ${AUTH_HBA_FILE:+auth_hba_file = ${AUTH_HBA_FILE}\n}\
 auth_type = ${AUTH_TYPE:-md5}
@@ -102,7 +108,7 @@ ${LOG_POOLER_ERRORS:+log_pooler_errors = ${LOG_POOLER_ERRORS}\n}\
 ${LOG_STATS:+log_stats = ${LOG_STATS}\n}\
 ${STATS_PERIOD:+stats_period = ${STATS_PERIOD}\n}\
 ${VERBOSE:+verbose = ${VERBOSE}\n}\
-admin_users = ${ADMIN_USERS:-postgres}
+${ADMIN_USERS:+admin_users = ${ADMIN_USERS}\n}\
 ${STATS_USERS:+stats_users = ${STATS_USERS}\n}\
 
 # Connection sanity checks, timeouts
@@ -153,8 +159,14 @@ ${TCP_KEEPINTVL:+tcp_keepintvl = ${TCP_KEEPINTVL}\n}\
 ${TCP_USER_TIMEOUT:+tcp_user_timeout = ${TCP_USER_TIMEOUT}\n}\
 ################## end file ##################
 " > ${PG_CONFIG_DIR}/pgbouncer.ini
-cat ${PG_CONFIG_DIR}/pgbouncer.ini
-echo "Starting $*..."
+if [ "${VERBOSE:-0}" != '0' ]; then
+  cat ${PG_CONFIG_DIR}/pgbouncer.ini
+fi
+info "Starting $*..."
+fi
+
+if [ "${VERBOSE:-0}" == '0' ] && [ -z ${1##*pgbouncer*} ]; then
+  exec "$@" --quiet
 fi
 
 exec "$@"
